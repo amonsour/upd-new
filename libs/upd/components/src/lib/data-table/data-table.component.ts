@@ -32,16 +32,22 @@ export class DataTableComponent<T> implements OnChanges {
   @Input() id?: string;
   @Input() placeholderText = 'dt_search_keyword';
 
+  keys: string[] = [];
+
   colFilters = Object.fromEntries(
     this.cols
       .filter((col) => col.filterConfig)
       .map((col) => [col.header, [] as string[]])
   );
+  filters: any[] = [];
 
-  setFilters(colHeader: string, filters: string[]) {
-    this.colFilters[colHeader] = filters;
+  setFilters(colField: string, colHeader: string, filters: string[]) {
+    this.colFilters[`${colHeader}:${colField}`] = filters;
+    console.log('Adding : ' + filters)
 
     console.log(this.colFilters);
+
+    console.log(this.table?.filters);
   }
 
   resetFilters() {
@@ -54,6 +60,33 @@ export class DataTableComponent<T> implements OnChanges {
         .filter((col) => col.filterConfig)
         .map((col) => [col.header, [] as string[]])
     );
+  }
+
+  deleteFilter(colHeader: string, filter: string) {
+    console.log('Removing : ' + filter);
+        this.colFilters[colHeader] = this.colFilters[colHeader].filter(
+          (f) => f !== filter
+        );
+
+        this.table?.filter(this.colFilters[colHeader], colHeader.split(":")[1], 'in');
+
+        (this.table?.filters as any)[colHeader.split(':')[1]] =
+          [
+            {
+            value: this.colFilters[colHeader].length === 0 ? null : this.colFilters[colHeader],
+            matchMode: 'in',
+            operator: 'and',
+          }];
+  
+            
+        // (this.colFilters[colHeader], colHeader.split(":")[1], 'in');
+
+        console.log(this.table?.filters );
+}
+
+  clearAll() {
+    this.colFilters = {};
+    this.table?.clear();
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -72,7 +105,6 @@ export class DataTableComponent<T> implements OnChanges {
 
     if (!equals(prevHeaders, currentHeaders)) {
       this.resetFilters();
-      this.table?._filter();
       this.table?.clearState();
     }
   }
@@ -86,5 +118,9 @@ export class DataTableComponent<T> implements OnChanges {
       /^.+?(?=www\.)/i,
       ''
     );
+  }
+
+  ngAfterContentChecked() {
+    this.keys = Object.keys(this.colFilters);
   }
 }
