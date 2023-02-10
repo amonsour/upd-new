@@ -14,9 +14,12 @@ import {
 import { CardComponent } from './card/card.component';
 import { DropdownModule } from 'primeng/dropdown';
 import { MultiSelectModule } from 'primeng/multiselect';
+import { OverlayModule } from 'primeng/overlay';
 import { SliderModule } from 'primeng/slider';
 import { CalendarModule } from 'primeng/calendar';
 import { InputNumberModule } from 'primeng/inputnumber';
+import { TreeModule } from 'primeng/tree';
+import { TreeSelectModule } from 'primeng/treeselect';
 import { PipesModule } from '@dua-upd/upd/pipes';
 import { DataCardComponent } from './data-card/data-card.component';
 import { DataTableComponent } from './data-table/data-table.component';
@@ -46,6 +49,7 @@ import { ApexRadialBarComponent } from './apex-radial-bar/apex-radial-bar.compon
 import { ApexBarComponent } from './apex-bar/apex-bar.component';
 import { ApexDonutComponent } from './apex-donut/apex-donut.component';
 import { ApexSparkLineComponent } from './apex-spark-line/apex-spark-line.component';
+import { FilterTableComponent } from './filter-table/filter-table.component';
 
 @NgModule({
   imports: [
@@ -65,6 +69,9 @@ import { ApexSparkLineComponent } from './apex-spark-line/apex-spark-line.compon
     DropdownModule,
     FormsModule,
     MultiSelectModule,
+    OverlayModule,
+    TreeModule,
+    TreeSelectModule,
     SliderModule,
     CalendarModule,
     InputNumberModule,
@@ -96,6 +103,7 @@ import { ApexSparkLineComponent } from './apex-spark-line/apex-spark-line.compon
     ApexBarComponent,
     ApexDonutComponent,
     ApexSparkLineComponent,
+    FilterTableComponent,
   ],
   exports: [
     NgbPopoverModule,
@@ -125,6 +133,7 @@ import { ApexSparkLineComponent } from './apex-spark-line/apex-spark-line.compon
     ApexBarComponent,
     ApexDonutComponent,
     ApexSparkLineComponent,
+    FilterTableComponent,
   ],
 })
 export class UpdComponentsModule {}

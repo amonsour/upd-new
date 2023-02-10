@@ -56,8 +56,6 @@ export class DataTableComponent<T> implements OnChanges {
     }
 
     this.colFilters = {};
-
-    console.log(this.colFilters);
   }
 
   deleteFilter(colHeader: string, filter: string) {
@@ -95,7 +93,7 @@ export class DataTableComponent<T> implements OnChanges {
   removeColFilter(header: string, field: string, filter: string[]) {
     const colHeader = `${header}:${field}`;
 
-    if ( filter === null ) return;
+    if (filter === null) return;
 
     filter.map((value) => {
       this.colFilters[colHeader] = this.colFilters[colHeader].filter(
@@ -155,5 +153,18 @@ export class DataTableComponent<T> implements OnChanges {
 
   ngAfterContentChecked() {
     this.keys = Object.keys(this.colFilters);
+  }
+
+  updateTableFilter(filter: { [key: string]: any }) {
+    //console.log(this.table.filters);
+    console.log(filter);
+    /*
+    this.table?.filter(
+      this.colFilters[colHeader],
+      colHeader.split(':')[1],
+      'in'
+    );
+    */
+    //this.table.filters = filter
   }
 }

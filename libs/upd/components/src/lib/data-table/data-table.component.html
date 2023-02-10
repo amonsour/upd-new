@@ -46,7 +46,15 @@
         ></upd-data-table-exports>
       </div>
 
-      <div class="container">
+      <upd-filter-table
+        *ngIf="filter"
+        [cols]="cols"
+        [data]="data || []"
+        [table]="table"
+        (tableUpdate)="updateTableFilter($event)"
+      ></upd-filter-table>
+
+      <!-- <div class="container">
         <div class="row">
           <div class="col p-0">
             <ng-container *ngIf="(colFilters | json) !== ({} | json)">
@@ -65,11 +73,13 @@
                   ></span>
                 </ng-container>
               </ng-container>
-              <a (click)="clearAll()" class="black">Clear all</a>
+              <a (click)="clearAll()" class="black">{{
+                'Clear all' | translate
+              }}</a>
             </ng-container>
           </div>
         </div>
-      </div>
+      </div> -->
     </div>
   </ng-template>
   <ng-template pTemplate="header" let-columns>
@@ -107,8 +117,9 @@
               <span class="datatable-headers">{{ col.header }}</span>
             </ng-container>
             <p-sortIcon [field]="col.field"></p-sortIcon>
-            <ng-template [ngIf]="col.filterConfig">
-              <!-- Boolean Filtering -->
+            <!-- <ng-template [ngIf]="col.filterConfig"> -->
+            <!-- Boolean Filtering -->
+            <!--
               <ng-template [ngIf]="col.filterConfig.type === 'boolean'">
                 <p-columnFilter
                   type="boolean"
@@ -117,10 +128,10 @@
                   [hideOnClear]="true"
                   [showApplyButton]="false"
                 ></p-columnFilter>
-              </ng-template>
+              </ng-template> -->
 
-              <!-- Category/Multiselect Filtering -->
-              <ng-template [ngIf]="col.filterConfig.type === 'category'">
+            <!-- Category/Multiselect Filtering -->
+            <!-- <ng-template [ngIf]="col.filterConfig.type === 'category'">
                 <p-columnFilter
                   [field]="col.field"
                   matchMode="in"
@@ -168,7 +179,7 @@
                   </ng-template>
                 </p-columnFilter>
               </ng-template>
-            </ng-template>
+            </ng-template> -->
           </div>
         </th>
       </ng-template>
