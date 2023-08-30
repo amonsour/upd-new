@@ -64,11 +64,6 @@ export class ProjectDetailsSummaryComponent implements OnInit {
     fail: { message: 'kpi-not-met-volume' },
   };
 
-  memberList = [
-    {role: 'Role name 1', projectLead: 'Name 1', vendor: 'Product name 1'},
-    {role: 'Role name 2', projectLead: 'Name 2', vendor: 'Product name 2'},
-    {role: 'Role name 3', projectLead: 'Name 3', vendor: 'Product name 3'}
-  ]
   memberList$ = this.projectsDetailsService.members$;
   memberListCols: ColumnConfig[] = [];
 
@@ -76,8 +71,6 @@ export class ProjectDetailsSummaryComponent implements OnInit {
 
   startDate$ = this.projectsDetailsService.startDate$;
   launchDate$ = this.projectsDetailsService.launchDate$;
-  completedField$ = 'Test string for completed field'
-  yearReview$ = 'Test string for year review field'
 
   constructor(
     private readonly projectsDetailsService: ProjectsDetailsFacade,
@@ -115,6 +108,31 @@ export class ProjectDetailsSummaryComponent implements OnInit {
           type: 'link',
           typeParams: { preLink: '/' + this.langLink + '/tasks', link: '_id' },
         },
+        {
+          field: 'calls',
+          header: this.i18n.service.translate('Calls / 100 Visits', lang),
+          pipe: 'number',
+        },
+        {
+          field: 'dyfNo',
+          header: this.i18n.service.translate(
+            '"No clicks" / 1,000 Visits',
+            lang
+          ),
+          pipe: 'number',
+        },
+        {
+          field: 'uxTest2Years',
+          header: this.i18n.service.translate('UX Test in Past 2 Years?', lang),
+        },
+        {
+          field: 'successRate',
+          header: this.i18n.service.translate(
+            'Latest UX Task Success Rate',
+            lang
+          ),
+          pipe: 'percent',
+        },
       ];
       this.dyfTableCols = [
         {
@@ -141,7 +159,7 @@ export class ProjectDetailsSummaryComponent implements OnInit {
       this.memberListCols = [
         {
           field: 'name',
-          header: this.i18n.service.translate('Name', lang)
+          header: this.i18n.service.translate('Name', lang),
         },
         {
           field: 'role',

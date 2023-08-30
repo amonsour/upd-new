@@ -29,6 +29,7 @@ export interface CallsByTopic {
 }
 
 export interface CallsByTasks {
+  num_calls: number;
   title: string;
   calls: number;
 }

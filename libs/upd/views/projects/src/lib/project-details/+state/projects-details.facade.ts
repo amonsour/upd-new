@@ -87,21 +87,6 @@ export class ProjectsDetailsFacade {
     map((data) => data?.dateRangeData?.totalCalldrivers || 0)
   );
 
-  projectTasks$ = combineLatest([
-    this.projectsDetailsData$,
-    this.currentLang$,
-  ]).pipe(
-    // todo: utility function for converting to SingleSeries/other chart types
-    map(([data, lang]) => {
-      const tasks = data?.tasks.map((task) => ({
-        ...task,
-        title: this.i18n.service.translate(task.title, lang) || task.title,
-      }));
-
-      return [...(tasks || [])];
-    })
-  );
-
   visits$ = this.projectsDetailsData$.pipe(
     map((data) => data?.dateRangeData?.visits || 0)
   );
@@ -494,6 +479,117 @@ export class ProjectsDetailsFacade {
     })
   );
 
+  // kpiTaskSuccessByUxTest$ = combineLatest([
+  // //   this.projectsDetailsData$,
+  // //   this.currentLang$,
+  // // ]).pipe(
+  // //   map(([data, lang]) => {
+  // //     const uxTests = data?.taskSuccessByUxTest.filter(
+  // //       (uxTest) => uxTest.success_rate ?? false
+  // //     );
+
+  // //     const tasksWithSuccessRate = uxTests
+  // //       ?.map((uxTest) => uxTest.tasks.split('; ') || [])
+  // //       .flat();
+
+  // //     const tasks = data?.tasks.filter(({ title }) =>
+  // //       tasksWithSuccessRate.includes(title)
+  // //     );
+
+  // //     })
+  // // );
+
+  kpiTaskSuccessByUxTest$ = combineLatest([
+    this.projectsDetailsData$,
+    this.currentLang$,
+  ]).pipe(
+    map(([data, lang]) => {
+      const uxTests = data?.taskSuccessByUxTest.filter(
+        (uxTest) => uxTest.success_rate ?? false
+      );
+  
+      const tasksWithSuccessRate = uxTests
+        ?.map((uxTest) => uxTest.tasks.split('; ') || [])
+        .flat();
+  
+      const tasks = data?.tasks.filter(({ title }) =>
+        tasksWithSuccessRate.includes(title)
+      );
+  
+      const categories = tasks.map((task) => task.title);
+  
+
+      return categories.map((category) => {
+        const tasks = uxTests.filter(
+          (task) =>
+            task.tasks.split('; ').includes(category) &&
+            task.success_rate !== null &&
+            task.success_rate !== undefined
+        );
+        const latestDate = tasks.reduce((acc, val) => {
+          return dayjs(acc.date).isAfter(dayjs(val.date)) ? acc : val;
+        }).date;
+      
+        const tasksWithLatestDate = tasks.filter(
+          (task) => task.date === latestDate
+        );
+        const taskSuccessRates = tasksWithLatestDate.map((task) => task.success_rate) as number[];
+        const totalSuccessRates = taskSuccessRates.reduce(
+          (acc, val) => acc + val,
+          0
+        );
+      
+        return {
+          title: this.i18n.service.translate(category, lang),
+          success: tasksWithLatestDate.length > 0 ? totalSuccessRates / tasksWithLatestDate.length : null,
+          latestDate,
+        };
+      });
+    })
+  );
+
+  projectTasks$ = combineLatest([
+    this.projectsDetailsData$,
+    this.kpiTaskSuccessByUxTest$,
+    this.currentLang$
+  ]).pipe(
+    // todo: utility function for converting to SingleSeries/other chart types
+    map(([data, uxTest, lang]) => {
+      const tasks = data?.tasks.map((task) => {
+        const calls = data?.dateRangeData?.callsByTasks?.find((c) => {
+          return c.title === task.title;
+        })?.calls || 0;
+
+        const page = data?.dateRangeData?.pageMetricsByTasks?.find((p) => {
+          return p.title === task.title;
+        });
+
+        const dyfNo = page?.dyfNo ? page.dyfNo : 0;
+        const visits = page?.visits ? page.visits : 0;
+
+        const kpiNoClicks =(( dyfNo / visits ) * 1000) || 0;
+        console.log('no task:', task.title, 'dyfNo:', dyfNo, 'visits:', visits, 'kpiNoClicks:', kpiNoClicks)
+        const kpiCalls = ( (calls / visits) * 100).toFixed(2) || 0;
+
+        const ux = uxTest.find((ux: { title: string; }) => ux.title === task.title);
+        const uxSuccess = (ux?.success)?.toFixed(2) || 0;
+        const uxTest2Years = ux?.latestDate;
+        const isWithin2Years = uxTest2Years && dayjs(uxTest2Years).isAfter(dayjs().subtract(2, 'year')) ? "Yes" : "No";
+
+        return {
+        ...task,
+        title: this.i18n.service.translate(task.title, lang) || task.title,
+        calls: kpiCalls,
+        dyfNo: kpiNoClicks,
+        uxTest2Years: isWithin2Years,
+        successRate: uxSuccess,
+        };
+      });
+
+      return [...(tasks || [])];
+    })
+  );
+
   apexTaskSuccessByUxTest$ = combineLatest([
     this.projectsDetailsData$,
     this.currentLang$,
@@ -517,9 +613,7 @@ export class ProjectsDetailsFacade {
         ...new Set(uxTests.map((item) => item.test_type)),
       ];
 
-      const series: ApexAxisChartSeries = [];
-
-      uniqueTestTypes.forEach((testType) => {
+      const series = uniqueTestTypes.map((testType) => {
         const data = categories.map((category) => {
           const tasks = uxTests.filter(
             (task) =>
@@ -542,7 +636,7 @@ export class ProjectsDetailsFacade {
           ? this.i18n.service.translate(testType as string, lang)
           : testType;
 
-        series.push({ name, data });
+        return { name, data };
       });
 
       const xaxis = categories.map((category) => {
