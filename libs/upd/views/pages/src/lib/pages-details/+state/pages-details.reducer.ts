@@ -27,7 +27,7 @@ export const pagesDetailsInitialState: PagesDetailsState = {
     feedbackComments: [],
     searchTerms: [],
     readability: [],
-    alternatePageId: '',
+    activityMap: [],
   },
   loading: false,
   loaded: false,
