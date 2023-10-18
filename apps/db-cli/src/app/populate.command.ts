@@ -1,8 +1,7 @@
 import { ConsoleLogger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import chalk from 'chalk';
-import { Model, Types } from 'mongoose';
-import { AnyBulkWriteOperation } from 'mongodb';
+import { Model, Types, type mongo } from 'mongoose';
 import { Command, CommandRunner, InquirerService } from 'nest-commander';
 import { DataIntegrityService } from '@dua-upd/data-integrity';
 import {
@@ -15,6 +14,7 @@ import {
 import { IPageMetrics } from '@dua-upd/types-common';
 import {
   AirtableService,
+  ActivityMapService,
   DbUpdateService,
   PageMetricsService,
   PagesListService,
@@ -156,6 +156,7 @@ export class PopulateCommand extends CommandRunner {
   constructor(
     private readonly adobeAnalyticsService: AdobeAnalyticsService,
     private readonly airtableService: AirtableService,
+    private readonly activityMapService: ActivityMapService,
     private readonly searchAnalyticsService: GoogleSearchConsoleService,
     private readonly inquirerService: InquirerService,
     private readonly dataIntegrityService: DataIntegrityService,
@@ -175,13 +176,18 @@ export class PopulateCommand extends CommandRunner {
 
   // Populate prerequisite data and make sure Pages are deduplicated
   async prepareDb() {
-    await this.airtableService.updatePagesList();
-    this.logger.log('Published Pages list updated');
+    try {
+      await this.airtableService.updatePagesList();
+      this.logger.log('Published Pages list updated');
 
-    await this.airtableService.updateUxData();
+      await this.airtableService.updateUxData();
 
-    // Updating UX data doesn't include project attachments
-    await this.airtableService.uploadProjectAttachmentsAndUpdateUrls();
+      // Updating UX data doesn't include project attachments
+      await this.airtableService.uploadProjectAttachmentsAndUpdateUrls();
+    } catch (err) {
+      this.logger.error(err.stack);
+      throw err;
+    }
   }
 
   async run(inputs: string[], options?: Record<string, any>) {
@@ -233,7 +239,11 @@ export class PopulateCommand extends CommandRunner {
 
     if (targetCollection === 'pages_metrics') {
       const { metricsOrSearchTerms } = await this.inquirerService.prompt<{
-        metricsOrSearchTerms: 'metrics' | 'search terms' | 'both';
+        metricsOrSearchTerms:
+          | 'metrics'
+          | 'search terms'
+          | 'activity map'
+          | 'all';
       }>('populate_pages', { ...options });
 
       const { startDate, endDate } = await this.getCollectionOptions(options);
@@ -255,16 +265,20 @@ export class PopulateCommand extends CommandRunner {
         return await this.internalSearchService.upsertPageSearchTerms(
           dateRange
         );
+      } else if (metricsOrSearchTerms === 'activity map') {
+        return await this.activityMapService.updateActivityMap(dateRange);
       }
 
-      // both metrics + search terms
+      // for "all"
       const pipelineConfig = this.createPageMetricsPipelineConfig(dateRange);
 
       const pipeline = assemblePipeline<Partial<PageMetrics>>(pipelineConfig);
 
       await pipeline();
 
-      return await this.internalSearchService.upsertPageSearchTerms(dateRange);
+      await this.internalSearchService.upsertPageSearchTerms(dateRange);
+
+      return await this.activityMapService.updateActivityMap(dateRange);
     }
     return Promise.resolve(undefined);
   }
@@ -320,7 +334,7 @@ export class PopulateCommand extends CommandRunner {
         );
         console.log(data.length);
 
-        const bulkInsertOps: AnyBulkWriteOperation[] = data.map((record) => ({
+        const bulkInsertOps: mongo.AnyBulkWriteOperation[] = data.map((record) => ({
           updateOne: {
             filter: {
               url: record.url,

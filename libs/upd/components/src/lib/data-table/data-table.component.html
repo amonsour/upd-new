@@ -7,7 +7,7 @@
   [showCurrentPageReport]="true"
   [rowsPerPageOptions]="[10, 25, 50, 100]"
   [loading]="loading"
-  styleClass="p-datatable-striped p-datatable-sm"
+  styleClass="p-datatable-striped p-datatable-sm border"
   [paginator]="pagination"
   currentPageReportTemplate="{{
     'dt-paginator'
@@ -18,7 +18,7 @@
     searchFields.length > 0 ? searchFields : defaultSearchFields
   "
   [sortField]="sortField"
-  [sortOrder]="sortOrder === 'desc' || sortOrder < 0 ? -1 : 1"
+  [sortOrder]="sortOrder === 'desc' ? -1 : 1"
   dataKey="_id"
 >
   <ng-template *ngIf="filter || captionTitle || exports" pTemplate="caption">
@@ -27,7 +27,7 @@
         <ng-container *ngIf="captionTitle">
           {{ captionTitle | translate }}
         </ng-container>
-        <div ngClass="searh-url-field">
+        <div class="searh-url-field">
           <span *ngIf="filter" class="p-input-icon-left p-ml-auto">
             <i class="pi pi-search"></i>
             <input
@@ -88,6 +88,7 @@
           [pSortableColumn]="col.field"
           [hidden]="col.hideTable"
           [ngClass]="col.headerClass || ''"
+          class="{{ col.columnClass || '' }}"
         >
           <div class="text-nowrap d-flex align-items-center">
             <ng-container *ngIf="col.tooltip">
@@ -160,7 +161,11 @@
         </th>
       </ng-template>
       <ng-template #elseBlock>
-        <th *ngFor="let col of columns" [hidden]="col.hideTable">
+        <th
+          *ngFor="let col of columns"
+          [hidden]="col.hideTable"
+          class="{{ col.columnClass || '' }}"
+        >
           <ng-container *ngIf="col.tooltip">
             <span
               class="p-column-title datatable-headers"
@@ -191,6 +196,7 @@
             (rowData[col.field] >= 0.8 ||
               (col.field === 'change' && rowData[col.field] >= 0.2))
         }"
+        class="{{ col.columnClass || '' }}"
         [hidden]="col.hideTable"
       >
         <span
@@ -207,21 +213,19 @@
   </ng-template>
   <ng-template pTemplate="emptymessage">
     <tr>
-      <td attr.colspan="{{ cols.length }}" translate>No data found.</td>
+      <td translate>No data found.</td>
     </tr>
   </ng-template>
   <ng-template *ngIf="kpi" pTemplate="footer">
-    <div class="pt-2">
-      <div class="legend">
-        <p class="legend_field">
-          <span class="legend_color" style="background: #90ee90"></span
-          >{{ 'kpi-met' | translate }}
-        </p>
-        <p class="legend_field">
-          <span class="legend_color" style="background: #f8e6d2"></span
-          >{{ 'kpi-half-met' | translate }}
-        </p>
-      </div>
+    <div class="legend">
+      <p class="legend_field">
+        <span class="legend_color" style="background: #90ee90"></span
+        >{{ 'kpi-met' | translate }}
+      </p>
+      <p class="legend_field">
+        <span class="legend_color" style="background: #f8e6d2"></span
+        >{{ 'kpi-half-met' | translate }}
+      </p>
     </div>
   </ng-template>
 </p-table>

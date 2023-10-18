@@ -1,4 +1,5 @@
-import { CACHE_MANAGER, Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { InjectModel } from '@nestjs/mongoose';
 import { Cache } from 'cache-manager';
 import { Model, Types } from 'mongoose';
@@ -7,7 +8,7 @@ import type {
   MetricsConfig,
   PageDocument,
   PageMetricsModel,
-  UrlDocument,
+  UrlModel,
 } from '@dua-upd/db';
 import {
   DbService,
@@ -42,7 +43,7 @@ export class PagesService {
     @InjectModel(Readability.name, 'defaultConnection')
     private readabilityModel: Model<Readability>,
     @InjectModel(Url.name, 'defaultConnection')
-    private urlModel: Model<UrlDocument>,
+    private urls: UrlModel,
     @Inject(CACHE_MANAGER) private cacheManager: Cache
   ) {}
 
@@ -102,6 +103,12 @@ export class PagesService {
       .populate('tasks')
       .populate('projects')
       .lean();
+
+    const urls = (await this.urls
+    .aggregate()
+    .match({page: new Types.ObjectId(params.id)})
+    .project({_id: 0, is_404: 1, redirect: 1})
+    .exec())[0];
 
     const projects = (page.projects || [])
       .map((project) => {
@@ -235,6 +242,9 @@ export class PagesService {
 
     const results = {
       ...page,
+      is404: urls.is_404,
+    isRedirect: !!urls.redirect,
+    redirectUrl: urls.redirect || null,
       projects,
       dateRange: params.dateRange,
       dateRangeData: {
@@ -247,6 +257,7 @@ export class PagesService {
           params.dateRange,
           [page.url]
         ),
+        dyfByDay: await this.getDyfByDay(params.dateRange, params.id),
       },
       comparisonDateRange: params.comparisonDateRange,
       comparisonDateRangeData: {
@@ -259,6 +270,7 @@ export class PagesService {
           params.comparisonDateRange,
           [page.url]
         ),
+        dyfByDay: await this.getDyfByDay(params.comparisonDateRange, params.id),
       },
       topSearchTermsIncrease: topIncreasedSearchTerms,
       topSearchTermsDecrease: topDecreasedSearchTerms,
@@ -275,6 +287,30 @@ export class PagesService {
     await this.cacheManager.set(cacheKey, results);
 
     return results;
+  }
+  async getDyfByDay(dateRange: string, id: string) {
+    const [startDate, endDate] = dateRange.split('/').map((d) => new Date(d));
+    return await this.pageMetricsModel
+      .aggregate()
+      .match({
+        date: { $gte: startDate, $lte: endDate },
+        page: new Types.ObjectId(id),
+      })
+      .group({
+        _id: '$date',
+        dyf_yes: { $sum: '$dyf_yes' },
+        dyf_no: { $sum: '$dyf_no' },
+        dyf_submit: { $sum: '$dyf_submit' },
+      })
+      .project({
+        _id: 0,
+        date: '$_id',
+        dyf_yes: 1,
+        dyf_no: 1,
+        dyf_submit: 1,
+      })
+      .sort({ date: 1 })
+      .exec();
   }
 
   async getPageDetailsDataByDay(page: Page, dateRange: string) {
@@ -323,7 +359,7 @@ export class PagesService {
   async getActivityMapData({ dateRange, comparisonDateRange, id }: ApiParams) {
     const [startDate, endDate] = dateRangeSplit(dateRange);
     const [prevStartDate, prevEndDate] = dateRangeSplit(comparisonDateRange);
-  
+
     const results =
       (await this.pageMetricsModel
         .aggregate<ActivityMapMetrics>()
@@ -349,46 +385,46 @@ export class PagesService {
           clicks: 1,
         })
         .exec()) || [];
-  
-        const prevResults =
-        (await this.pageMetricsModel
-          .aggregate<ActivityMapMetrics>()
-          .project({ date: 1, activity_map: 1, page: 1 })
-          .match({
-            date: { $gte: prevStartDate, $lte: prevEndDate },
-            page: new Types.ObjectId(id),
-          })
-          .unwind('$activity_map')
-          .match({
-            'activity_map.link': {
-              $in: results.map(({ link }) => link),
-            },
-          })
-          .group({
-            _id: '$activity_map.link',
-            clicks: {
-              $sum: '$activity_map.clicks',
-            },
-          })
-          .project({
-            _id: 0,
-            link: '$_id',
-            clicks: 1,
-          })
-          .exec()) || [];
-  
+
+    const prevResults =
+      (await this.pageMetricsModel
+        .aggregate<ActivityMapMetrics>()
+        .project({ date: 1, activity_map: 1, page: 1 })
+        .match({
+          date: { $gte: prevStartDate, $lte: prevEndDate },
+          page: new Types.ObjectId(id),
+        })
+        .unwind('$activity_map')
+        .match({
+          'activity_map.link': {
+            $in: results.map(({ link }) => link),
+          },
+        })
+        .group({
+          _id: '$activity_map.link',
+          clicks: {
+            $sum: '$activity_map.clicks',
+          },
+        })
+        .project({
+          _id: 0,
+          link: '$_id',
+          clicks: 1,
+        })
+        .exec()) || [];
+
     const prevResultsDict = arrayToDictionary(prevResults, 'link');
-  
+
     return results.map((result) => {
       const prevCount = prevResultsDict[result.link]?.clicks;
-      const countChange =
+      const clicksChange =
         typeof prevCount === 'number' && prevCount !== 0
           ? Math.round(((result.clicks - prevCount) / prevCount) * 100) / 100
           : null;
-  
+
       return {
         ...result,
-        countChange,
+        clicksChange,
       };
     });
   }

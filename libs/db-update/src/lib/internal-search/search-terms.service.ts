@@ -1,7 +1,8 @@
 import { ConsoleLogger, Injectable } from '@nestjs/common';
 import chalk from 'chalk';
-import { AnyBulkWriteOperation } from 'mongodb';
-import { Types } from 'mongoose';
+import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import { Types, mongo } from 'mongoose';
 import {
   arrayToDictionary,
   logJson,
@@ -22,10 +23,7 @@ import {
   queryDateFormat,
   singleDatesFromDateRange,
 } from '@dua-upd/external-data';
-import dayjs from 'dayjs';
-import utc from 'dayjs/plugin/utc';
-import { writeFile, mkdir } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { writeLogFile } from '@dua-upd/node-utils';
 
 dayjs.extend(utc);
 
@@ -35,7 +33,7 @@ export class InternalSearchTermsService {
     private adobeAnalyticsService: AdobeAnalyticsService,
     private blobProxyService: BlobProxyService,
     private db: DbService,
-    private logger: ConsoleLogger
+    private logger: ConsoleLogger,
   ) {}
 
   /*
@@ -43,7 +41,7 @@ export class InternalSearchTermsService {
    */
   async addPageRefsAndUpsertValidItemIds(itemIds: IAAItemId[]) {
     this.logger.log(
-      chalk.blueBright('Finding valid Page references and inserting...')
+      chalk.blueBright('Finding valid Page references and inserting...'),
     );
 
     /*
@@ -65,7 +63,7 @@ export class InternalSearchTermsService {
       {
         fullUrlItemIds: [] as IAAItemId[],
         partialUrlItemIds: [] as IAAItemId[],
-      }
+      },
     );
 
     // Declaring these here to provide count after
@@ -139,11 +137,11 @@ export class InternalSearchTermsService {
       if (partialsToInsert.length) {
         this.logger.log(
           chalk.blue(
-            `${partialsToInsert.length} itemIds (248+ chars.) with matching Pages found`
-          )
+            `${partialsToInsert.length} itemIds (248+ chars.) with matching Pages found`,
+          ),
         );
 
-        const updateOps: AnyBulkWriteOperation[] = partialsToInsert.map(
+        const updateOps: mongo.AnyBulkWriteOperation[] = partialsToInsert.map(
           (itemId) => ({
             updateOne: {
               filter: { itemId: itemId.itemId },
@@ -160,11 +158,11 @@ export class InternalSearchTermsService {
               },
               upsert: true,
             },
-          })
+          }),
         );
 
         await this.db.collections.aaItemIds.bulkWrite(
-          updateOps as AnyBulkWriteOperation<IAAItemId>[]
+          updateOps as mongo.AnyBulkWriteOperation<IAAItemId>[],
         );
       }
     }
@@ -179,7 +177,7 @@ export class InternalSearchTermsService {
      */
     if (fullUrlItemIds.length) {
       const cleanedItemIdUrls = fullUrlItemIds.map(({ value }) =>
-        value.replace('https://', '')
+        value.replace('https://', ''),
       );
 
       const matchingPages = await this.db.collections.pages
@@ -214,11 +212,11 @@ export class InternalSearchTermsService {
       if (itemIdsToInsert.length) {
         this.logger.log(
           chalk.blueBright(
-            `Upserting ${itemIdsToInsert.length} itemIds with matching Pages`
-          )
+            `Upserting ${itemIdsToInsert.length} itemIds with matching Pages`,
+          ),
         );
 
-        const updateOps: AnyBulkWriteOperation[] = itemIdsToInsert.map(
+        const updateOps: mongo.AnyBulkWriteOperation[] = itemIdsToInsert.map(
           (itemId) => ({
             updateOne: {
               filter: { itemId: itemId.itemId },
@@ -235,11 +233,11 @@ export class InternalSearchTermsService {
               },
               upsert: true,
             },
-          })
+          }),
         );
 
         await this.db.collections.aaItemIds.bulkWrite(
-          updateOps as AnyBulkWriteOperation<IAAItemId>[]
+          updateOps as mongo.AnyBulkWriteOperation<IAAItemId>[],
         );
       }
     }
@@ -249,14 +247,14 @@ export class InternalSearchTermsService {
     if (totalInserted.length) {
       this.logger.log(
         chalk.green(
-          `${totalInserted.length} new internalSearch itemIds successfully inserted/upserted!`
-        )
+          `${totalInserted.length} new internalSearch itemIds successfully inserted/upserted!`,
+        ),
       );
     } else {
       this.logger.log(
         chalk.blueBright(
-          `${totalInserted.length} new internalSearch itemIds inserted.`
-        )
+          `${totalInserted.length} new internalSearch itemIds inserted.`,
+        ),
       );
     }
   }
@@ -279,11 +277,11 @@ export class InternalSearchTermsService {
     }
 
     const existingItemIdSet = new Set(
-      existingItemIds.map(({ itemId }) => itemId)
+      existingItemIds.map(({ itemId }) => itemId),
     );
 
     const newItemIds = itemIds.filter(
-      ({ itemId }) => !existingItemIdSet.has(itemId)
+      ({ itemId }) => !existingItemIdSet.has(itemId),
     );
 
     if (newItemIds.length) {
@@ -300,13 +298,13 @@ export class InternalSearchTermsService {
     }
   }
 
-  async updateItemIds(dateRange: DateRange) {
+  async updateInternalSearchItemIds(dateRange: DateRange) {
     try {
       this.logger.log(
         chalk.blueBright(
           'Updating itemIds for dateRange: ',
-          prettyJson(dateRange)
-        )
+          prettyJson(dateRange),
+        ),
       );
 
       const blobProxy = this.blobProxyService.createProxy({
@@ -318,7 +316,7 @@ export class InternalSearchTermsService {
 
       const itemIds = await blobProxy.exec(
         dateRange,
-        `${dateRange.start.slice(0, 10)}_${dateRange.end.slice(0, 10)}`
+        `${dateRange.start.slice(0, 10)}_${dateRange.end.slice(0, 10)}`,
       );
 
       await this.insertItemIdsIfNew(itemIds);
@@ -342,7 +340,7 @@ export class InternalSearchTermsService {
             { aa_searchterms_fr: { $exists: true, $not: { $size: 0 } } },
           ],
         },
-        { date: 1 }
+        { date: 1 },
       )
       .sort({ date: -1 })
       .exec();
@@ -368,27 +366,29 @@ export class InternalSearchTermsService {
       return;
     }
 
-    await this.updateItemIds(queryDateRange);
+    await this.updateInternalSearchItemIds(queryDateRange);
 
     for (const lang of ['en', 'fr'] as ('en' | 'fr')[]) {
       this.logger.log(
         chalk.blueBright(
-          `Updating overall ${lang} search terms for ${formattedDateRange}`
-        )
+          `Updating overall ${lang} search terms for ${formattedDateRange}`,
+        ),
       );
 
       const insertFunction = async (
-        results: (AASearchTermMetrics & { date: Date })[]
+        results: (AASearchTermMetrics & { date: Date })[],
       ) => {
         this.logger.log(
-          chalk.blueBright(`Got ${results.length} ${lang} overall search terms`)
+          chalk.blueBright(
+            `Got ${results.length} ${lang} overall search terms`,
+          ),
         );
 
         if (!results.length) {
           this.logger.warn(
             chalk.yellow(
-              `Received no overall ${lang} searchterms results for ${formattedDateRange}`
-            )
+              `Received no overall ${lang} searchterms results for ${formattedDateRange}`,
+            ),
           );
 
           return [];
@@ -418,19 +418,19 @@ export class InternalSearchTermsService {
             },
             {
               upsert: true,
-            }
+            },
           );
 
           this.logger.log(
             chalk.green(
-              `Successfully inserted ${results.length} ${lang} overall search terms! (${date})`
-            )
+              `Successfully inserted ${results.length} ${lang} overall search terms! (${date})`,
+            ),
           );
         } catch (err) {
           this.logger.error(
             chalk.red(
-              'An error occurred while trying to insert overall search terms'
-            )
+              'An error occurred while trying to insert overall search terms',
+            ),
           );
 
           throw Error(err);
@@ -442,11 +442,11 @@ export class InternalSearchTermsService {
         lang,
         {
           onComplete: insertFunction.bind(this),
-        }
+        },
       );
 
       this.logger.log(
-        chalk.green(`\r\nFinished updating ${lang} overall search terms.`)
+        chalk.green(`\r\nFinished updating ${lang} overall search terms.`),
       );
     }
   }
@@ -457,7 +457,7 @@ export class InternalSearchTermsService {
       this.db.collections.pageMetrics
         .findOne(
           { aa_searchterms: { $exists: true, $not: { $size: 0 } } },
-          { date: 1 }
+          { date: 1 },
         )
         .sort({ date: -1 })
         .exec();
@@ -488,7 +488,7 @@ export class InternalSearchTermsService {
       singleDatesFromDateRange(
         queriesDateRange,
         queryDateFormat,
-        true
+        true,
       ) as string[]
     )
       .map((date: string) => ({
@@ -498,7 +498,7 @@ export class InternalSearchTermsService {
       .filter(
         (dateRange) =>
           dayjs.utc(dateRange.start).startOf('day') !==
-          dayjs.utc().startOf('day')
+          dayjs.utc().startOf('day'),
       );
 
     const blobProxy = this.blobProxyService.createProxy({
@@ -507,11 +507,11 @@ export class InternalSearchTermsService {
         `searchterms/searchterms-by-itemId_${dates}.json`,
       queryExecutor: async ([dateRange, itemIdDocs]: [
         DateRange,
-        IAAItemId[]
+        IAAItemId[],
       ]) =>
         await this.adobeAnalyticsService.getPageSearchTerms(
           dateRange,
-          itemIdDocs
+          itemIdDocs,
         ),
     });
 
@@ -521,11 +521,11 @@ export class InternalSearchTermsService {
         url: string;
       }>();
 
-      const itemIdDocs = await this.updateItemIds(dateRange);
+      const itemIdDocs = await this.updateInternalSearchItemIds(dateRange);
 
       const searchTermResults = await blobProxy.exec(
         [dateRange, itemIdDocs],
-        `${dateRange.start.slice(0, 10)}_${dateRange.end.slice(0, 10)}` // the date string to include in the filename
+        `${dateRange.start.slice(0, 10)}_${dateRange.end.slice(0, 10)}`, // the date string to include in the filename
       );
 
       const dbItemIds =
@@ -556,7 +556,7 @@ export class InternalSearchTermsService {
           return searchTermResults;
         })
         .filter(
-          (results) => 'page' in results
+          (results) => 'page' in results,
         ) as SearchTermIntermediateResult[];
 
       // There can sometimes be results for the same "Page" but with different urls on the same day
@@ -580,7 +580,7 @@ export class InternalSearchTermsService {
               $in: resultsWithRefs.map(({ page }) => new Types.ObjectId(page)),
             },
           },
-          { url: 1, page: 1 }
+          { url: 1, page: 1 },
         )
         .lean()
         .exec();
@@ -602,21 +602,21 @@ export class InternalSearchTermsService {
       const pageMetricsDict = arrayToDictionary(
         pageMetricsToMatch,
         'page',
-        true
+        true,
       );
 
       // lookup table by url for duplicates
       const pageMetricsUrlDict = arrayToDictionary(pageMetricsToMatch, 'url');
 
-      const bulkWriteOps: AnyBulkWriteOperation[] = [];
+      const bulkWriteOps: mongo.AnyBulkWriteOperation[] = [];
 
       // will be easier to do if we separate with dups from without dups
       const searchResultsWithoutDups = resultsWithRefs.filter(
-        ({ page }) => !duplicateSearchTermPageRefs.includes(page)
+        ({ page }) => !duplicateSearchTermPageRefs.includes(page),
       );
 
       const searchResultsWithDups = resultsWithRefs.filter(({ page }) =>
-        duplicateSearchTermPageRefs.includes(page)
+        duplicateSearchTermPageRefs.includes(page),
       );
 
       // And... bare with me here...
@@ -624,12 +624,12 @@ export class InternalSearchTermsService {
 
       // Refs are duplicated in search results only:
       const searchResultsWithSearchDups = searchResultsWithDups.filter(
-        ({ page }) => !duplicatePageMetricsPageRefs.includes(page)
+        ({ page }) => !duplicatePageMetricsPageRefs.includes(page),
       );
 
       // Refs are duplicated in both:
       const searchResultsWithDupsInBoth = searchResultsWithDups.filter(
-        ({ page }) => duplicatePageMetricsPageRefs.includes(page)
+        ({ page }) => duplicatePageMetricsPageRefs.includes(page),
       );
 
       // possible "duplicated page ref" scenarios:
@@ -678,7 +678,7 @@ export class InternalSearchTermsService {
         }
 
         mergedSearchResults.aa_searchterms.push(
-          ...searchResults.aa_searchterms
+          ...searchResults.aa_searchterms,
         );
         mergedSearchResults.aa_searchterms.sort((a, b) => a.clicks - b.clicks);
 
@@ -702,8 +702,8 @@ export class InternalSearchTermsService {
         } else {
           this.logger.warn(
             chalk.yellowBright(
-              `Found no page_metrics matches for page ref: ${searchTermResults.page}`
-            )
+              `Found no page_metrics matches for page ref: ${searchTermResults.page}`,
+            ),
           );
         }
       }
@@ -729,8 +729,8 @@ export class InternalSearchTermsService {
           this.logger.warn(
             chalk.yellowBright(
               'Found no page_metrics matches for search term results: ' +
-                searchTermResults.cleanUrl
-            )
+                searchTermResults.cleanUrl,
+            ),
           );
 
           noMetricsMatchSet.add({
@@ -744,32 +744,20 @@ export class InternalSearchTermsService {
       console.log(bulkWriteOps.length);
 
       const bulkWriteResults = await this.db.collections.pageMetrics.bulkWrite(
-        bulkWriteOps as AnyBulkWriteOperation<PageMetrics>[],
+        bulkWriteOps as mongo.AnyBulkWriteOperation<PageMetrics>[],
         {
           ordered: false,
-        }
+        },
       );
 
       this.logger.log('searchTerm bulkWrite results:');
       logJson(bulkWriteResults);
 
       if (noMetricsMatchSet.size > 0) {
-        try {
-          if (!existsSync('./logs')) {
-            await mkdir('./logs');
-          }
+        const dateString = dateRange.start.slice(0, 10);
+        const logFilename = `searchterms-noMatch-${dateString}.json`;
 
-          await writeFile(
-            `./logs/searchterms-noMatch-${dateRange.start.replace(
-              /^(\d{4}-\d{2}-\d{2}).+/,
-              '$1'
-            )}.json`,
-            prettyJson([...noMetricsMatchSet]),
-            'utf8'
-          );
-        } catch (e) {
-          console.error(e);
-        }
+        await writeLogFile(logFilename, [...noMetricsMatchSet]);
       }
     }
   }

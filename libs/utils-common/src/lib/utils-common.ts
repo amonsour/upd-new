@@ -17,7 +17,7 @@ export const hasDuplicates = <T>(array: T[]) =>
 //  -credit: https://leefreeman.xyz/2020/05/08/typescript-decorators/
 export function LogTiming(message = '') {
   return function (
-    target: object,
+    _target: object,
     name: string,
     descriptor: PropertyDescriptor
   ) {
@@ -36,7 +36,7 @@ export function LogTiming(message = '') {
 }
 
 export const AsyncLogTiming = <T extends (...args: unknown[]) => ReturnType<T>>(
-  target: object,
+  _target: object,
   propertyKey: string,
   descriptor: PropertyDescriptor
 ) => {
@@ -73,10 +73,6 @@ export function Required(target: object, propertyKey: string) {
     configurable: true,
   });
 }
-
-type KeysMatching<T extends object, V> = {
-  [K in keyof T]-?: T[K] extends V ? K : never;
-}[keyof T];
 
 /**
  * Converts an array of objects into a "dictionary" or lookup table, using the value of the specified property as the key
@@ -133,14 +129,16 @@ export function arrayToDictionary<T extends object>(
     if (dictionary[key]) {
       if (!allowDuplicateKeys) {
         throw Error(
-          'Could not convert array to dictionary: received duplicate key: ' + key
+          'Could not convert array to dictionary: received duplicate key: ' +
+            key
         );
       }
 
-      console.warn('Duplicate key found when converting array to dictionary: ' + key);
+      console.warn(
+        'Duplicate key found when converting array to dictionary: ' + key
+      );
       console.warn(JSON.stringify(obj, null, 2));
     }
-
 
     dictionary[key] = obj;
   }
@@ -187,6 +185,66 @@ export function arrayToDictionaryFlat<T extends object>(
   return dictionary;
 }
 
+/**
+ * Another version of arrayToDictionary, for cases where the keys are not unique.
+ * The keys can be used to look up an array of objects corresponding with that key.
+ *
+ * @param array The array to convert
+ * @param keyProp The property to use as keys
+ * @param flat Whether the key property is an array of strings to be flattened
+ **/
+export function arrayToDictionaryMultiref<T extends object>(
+  array: T[],
+  keyProp: keyof T,
+  flat = false
+) {
+  if (!array.length) return {};
+
+  const dictionary: Record<string, T[]> = {};
+
+  const error = Error(
+    'Could not convert array to dictionary: the value of the key property is invalid or undefined.\r\n' +
+      'Object where error occurred:\r\n\r\n' +
+      JSON.stringify(array[0], null, 2)
+  );
+
+  if (flat) {
+    for (const obj of array) {
+      const keys = obj[keyProp] as string[];
+
+      if (!keys) {
+        throw error;
+      }
+
+      for (const key of keys) {
+        if (!dictionary[key]) {
+          dictionary[key] = [];
+        }
+
+        dictionary[key].push(obj);
+      }
+    }
+
+    return dictionary;
+  }
+
+  for (const obj of array) {
+    const key = `${obj[keyProp]}`;
+
+    if (!key) {
+      throw error;
+    }
+
+    if (!dictionary[key]) {
+      dictionary[key] = [];
+    }
+
+    dictionary[key].push(obj);
+  }
+
+  return dictionary;
+}
+
 // For cloning class instances, objects, etc., including current state
 export const clone = <T extends object>(obj: T): T =>
   Object.assign(Object.create(Object.getPrototypeOf(obj)), obj);
@@ -201,7 +259,7 @@ export function logJson(anything: unknown, logger = console.log) {
 }
 
 // For logging JSON
-export function prettyJson(obj: object) {
+export function prettyJson(obj: unknown) {
   return JSON.stringify(obj, null, 2);
 }
 
@@ -363,8 +421,8 @@ export class TimingUtility {
  */
 export function Retry(retries: number, delay: number) {
   return function (
-    target: object,
-    propertyKey: string,
+    _target: object,
+    _propertyKey: string,
     descriptor: PropertyDescriptor
   ) {
     const originalMethod = descriptor.value;
@@ -417,8 +475,8 @@ export function Retry(retries: number, delay: number) {
  */
 export function Timeout(milliseconds: number) {
   return function (
-    target: object,
-    propertyKey: string,
+    _target: object,
+    _propertyKey: string,
     descriptor: PropertyDescriptor
   ) {
     const originalMethod = descriptor.value;

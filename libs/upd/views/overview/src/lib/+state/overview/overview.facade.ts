@@ -54,6 +54,10 @@ export class OverviewFacade {
   dateRangeSelected$ = this.store.select(selectDatePeriodSelection);
   overviewData$ = this.store.select(OverviewSelectors.selectOverviewData);
 
+  annotationsData$ = this.store.select(
+    OverviewSelectors.selectAnnotationsSeries
+  );
+
   currentRoute$ = this.store
     .select(selectUrl)
     .pipe(map((url) => url.replace(/\?.+$/, '')));
@@ -143,25 +147,49 @@ export class OverviewFacade {
     this.testTypeTranslations$,
   ]).pipe(
     map(([data, lang, testTypeTranslations]) => {
-      const projects = data?.projects?.projects.map((data) => {
-        const testType = (data.testType || []).map((testType: string) => {
-          return (
-            (testTypeTranslations as Record<string, string>)[testType] ||
-            testType
+      const uxTests = data?.uxTests || [];
+
+      const maxUsersByTitleAndType: Record<string, Record<string, number>> = {};
+
+      for (const { title, test_type, total_users = 0 } of uxTests) {
+        if (title && test_type) {
+          maxUsersByTitleAndType[title] = maxUsersByTitleAndType[title] || {};
+          maxUsersByTitleAndType[title][test_type] = Math.max(
+            maxUsersByTitleAndType[title][test_type] || 0,
+            total_users
           );
-        });
+        }
+      }
 
-        return {
-          ...data,
-          title: data.title
-            ? this.i18n.service.translate(data.title.replace(/\s+/g, ' '), lang)
+      const maxUsersByTitle = Object.keys(maxUsersByTitleAndType).reduce(
+        (accumulator, title) => {
+          const typeValues = maxUsersByTitleAndType[title];
+          accumulator[title] = Object.values(typeValues).reduce(
+            (typeSum, value) => typeSum + value,
+            0
+          );
+          return accumulator;
+        },
+        {} as Record<string, number>
+      );
+
+      return (
+        data?.projects?.projects.map((proj) => ({
+          ...proj,
+          title: proj.title
+            ? this.i18n.service.translate(proj.title.trim(), lang)
             : '',
-          testType: testType.sort().join(', '),
-          startDate: data.startDate || '',
-        };
-      });
-
-      return [...(projects || [])];
+          testType: (proj.testType || [])
+            .map(
+              (testType: string) =>
+                (testTypeTranslations as Record<string, string>)[testType] ||
+                testType
+            )
+            .sort(),
+          startDate: proj.startDate || '',
+          totalUsers: maxUsersByTitle[proj.title] || 0,
+        })) || []
+      );
     })
   );
 
@@ -472,7 +500,7 @@ export class OverviewFacade {
       const searchAssessment = data?.dateRangeData?.searchAssessmentData
         .map((d) => {
           const isEnglish = d.lang === 'en';
-          const rank = isFinite(d.position) ? Math.round(d.position) : '';
+          const rank = isFinite(d.position) ? Math.round(d.position) : NaN;
           const pass = rank <= 3 && rank > 0 ? 'Pass' : 'Fail';
           const url = d.expected_result?.replace(/^https:\/\//i, '');
           return {
@@ -517,7 +545,7 @@ export class OverviewFacade {
       return data?.comparisonDateRangeData?.searchAssessmentData
         .map((d) => {
           const isEnglish = d.lang === 'en';
-          const rank = isFinite(d.position) ? Math.round(d.position) : '';
+          const rank = isFinite(d.position) ? Math.round(d.position) : NaN;
           const pass = rank <= 3 && rank > 0 ? 'Pass' : 'Fail';
           const url = d.expected_result?.replace(/^https:\/\//i, '');
           return {
