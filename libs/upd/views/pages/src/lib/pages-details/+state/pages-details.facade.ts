@@ -119,6 +119,8 @@ export class PagesDetailsFacade {
 
   tasks$ = this.pagesDetailsData$.pipe(map((data) => data?.tasks || 0));
 
+  altPageId$ = this.pagesDetailsData$.pipe(map((data) => data?.alternatePageId || 0));
+
   readability$ = this.store.select(selectReadabilityData);
 
   apexKpiFeedback$ = this.store.select(selectDyfNoPerVisitsSeries);

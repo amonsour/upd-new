@@ -80,14 +80,24 @@ export declare class PageMetrics {
     ux_tests?: Types.ObjectId[] | UxTest[];
     activity_map?: ActivityMapMetrics[] = [];
 }
-export declare const PageMetricsSchema: import("mongoose").Schema<Document<PageMetrics, any, any>, Model<Document<PageMetrics, any, any>, any, any, any>, {}, {}>;
+export declare const PageMetricsSchema: import('mongoose').Schema<
+  Document<PageMetrics, any, any>,
+  Model<Document<PageMetrics, any, any>, any, any, any>,
+  {},
+  {}
+>;
 export declare function getPageMetricsModel(): Model<Document<PageMetrics>>;
 export declare type MetricsConfig<T> = {
-    [key in AccumulatorOperator]?: keyof Partial<T>;
+  [key in AccumulatorOperator]?: keyof Partial<T>;
 };
-export declare type GetAggregatedMetrics = <T>(dateRange: string, selectedMetrics: (keyof T | MetricsConfig<T>)[], pagesFilter?: FilterQuery<PageMetrics>, sortConfig?: {
+export declare type GetAggregatedMetrics = <T>(
+  dateRange: string,
+  selectedMetrics: (keyof T | MetricsConfig<T>)[],
+  pagesFilter?: FilterQuery<PageMetrics>,
+  sortConfig?: {
     [key in keyof Partial<T>]: 1 | -1;
-}) => Promise<T[]>;
+  }
+) => Promise<T[]>;
 export interface PageMetricsModel extends Model<PageMetricsDocument> {
-    getAggregatedPageMetrics: GetAggregatedMetrics;
+  getAggregatedPageMetrics: GetAggregatedMetrics;
 }

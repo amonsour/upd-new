@@ -24,6 +24,11 @@ export interface IAAItemId {
   title?: string;
 }
 
+export interface ActivityMapMetrics {
+  link: string;
+  clicks: number;
+}
+
 /*
  * Calldriver types
  */
