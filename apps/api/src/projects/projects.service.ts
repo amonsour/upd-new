@@ -623,61 +623,60 @@ async function getAggregatedProjectMetrics(
   console.timeEnd('feedbackByTags');
 
   console.time('projectMetrics');
-  const projectMetrics = (
-    await pageMetricsModel
-      .aggregate<ProjectDetailsAggregatedData>()
-      .match({ date: { $gte: startDate, $lte: endDate }, projects: id })
-      .project({
-        date: 1,
-        url: 1,
-        page: 1,
-        projects: 1,
-        visits: 1,
-        dyf_yes: 1,
-        dyf_no: 1,
-        fwylf_cant_find_info: 1,
-        fwylf_hard_to_understand: 1,
-        fwylf_other: 1,
-        fwylf_error: 1,
-        gsc_total_clicks: 1,
-        gsc_total_impressions: 1,
-        gsc_total_ctr: 1,
-        gsc_total_position: 1,
-      })
-      .group({
-        _id: '$page',
-        page: { $first: '$page' },
-        visits: { $sum: '$visits' },
-        dyfYes: { $sum: '$dyf_yes' },
-        dyfNo: { $sum: '$dyf_no' },
-        fwylfCantFindInfo: { $sum: '$fwylf_cant_find_info' },
-        fwylfHardToUnderstand: { $sum: '$fwylf_hard_to_understand' },
-        fwylfOther: { $sum: '$fwylf_other' },
-        fwylfError: { $sum: '$fwylf_error' },
-        gscTotalClicks: { $sum: '$gsc_total_clicks' },
-        gscTotalImpressions: { $sum: '$gsc_total_impressions' },
-        gscTotalCtr: { $avg: '$gsc_total_ctr' },
-        gscTotalPosition: { $avg: '$gsc_total_position' },
-      })
-      .group({
-        _id: null,
-        visitsByPage: {
-          $push: '$$ROOT',
-        },
-        visits: { $sum: '$visits' },
-        dyfYes: { $sum: '$dyfYes' },
-        dyfNo: { $sum: '$dyfNo' },
-        fwylfCantFindInfo: { $sum: '$fwylfCantFindInfo' },
-        fwylfHardToUnderstand: { $sum: '$fwylfHardToUnderstand' },
-        fwylfOther: { $sum: '$fwylfOther' },
-        fwylfError: { $sum: '$fwylfError' },
-        gscTotalClicks: { $sum: '$gscTotalClicks' },
-        gscTotalImpressions: { $sum: '$gscTotalImpressions' },
-        gscTotalCtr: { $avg: '$gscTotalCtr' },
-        gscTotalPosition: { $avg: '$gscTotalPosition' },
-      })
-      .exec()
-  )?.[0];
+  const projectMetrics = await pageMetricsModel
+    .aggregate<ProjectDetailsAggregatedData>()
+    .match({ date: { $gte: startDate, $lte: endDate }, projects: id })
+    .project({
+      date: 1,
+      url: 1,
+      page: 1,
+      projects: 1,
+      visits: 1,
+      dyf_yes: 1,
+      dyf_no: 1,
+      fwylf_cant_find_info: 1,
+      fwylf_hard_to_understand: 1,
+      fwylf_other: 1,
+      fwylf_error: 1,
+      gsc_total_clicks: 1,
+      gsc_total_impressions: 1,
+      gsc_total_ctr: 1,
+      gsc_total_position: 1,
+    })
+    .group({
+      _id: '$page',
+      page: { $first: '$page' },
+      visits: { $sum: '$visits' },
+      dyfYes: { $sum: '$dyf_yes' },
+      dyfNo: { $sum: '$dyf_no' },
+      fwylfCantFindInfo: { $sum: '$fwylf_cant_find_info' },
+      fwylfHardToUnderstand: { $sum: '$fwylf_hard_to_understand' },
+      fwylfOther: { $sum: '$fwylf_other' },
+      fwylfError: { $sum: '$fwylf_error' },
+      gscTotalClicks: { $sum: '$gsc_total_clicks' },
+      gscTotalImpressions: { $sum: '$gsc_total_impressions' },
+      gscTotalCtr: { $avg: '$gsc_total_ctr' },
+      gscTotalPosition: { $avg: '$gsc_total_position' },
+    })
+    .group({
+      _id: null,
+      visitsByPage: {
+        $push: '$$ROOT',
+      },
+      visits: { $sum: '$visits' },
+      dyfYes: { $sum: '$dyfYes' },
+      dyfNo: { $sum: '$dyfNo' },
+      fwylfCantFindInfo: { $sum: '$fwylfCantFindInfo' },
+      fwylfHardToUnderstand: { $sum: '$fwylfHardToUnderstand' },
+      fwylfOther: { $sum: '$fwylfOther' },
+      fwylfError: { $sum: '$fwylfError' },
+      gscTotalClicks: { $sum: '$gscTotalClicks' },
+      gscTotalImpressions: { $sum: '$gscTotalImpressions' },
+      gscTotalCtr: { $avg: '$gscTotalCtr' },
+      gscTotalPosition: { $avg: '$gscTotalPosition' },
+    })
+    .exec();
+
   console.timeEnd('projectMetrics');
 
   const projectPages = await pageModel
@@ -695,7 +694,7 @@ async function getAggregatedProjectMetrics(
 
   const visitedPageIds = new Set();
   const metrics =
-    projectMetrics?.visitsByPage.map((metric) => {
+    projectMetrics[0]?.visitsByPage.map((metric) => {
       const pageId = metric._id.toString();
       visitedPageIds.add(pageId);
 
@@ -735,10 +734,11 @@ async function getAggregatedProjectMetrics(
         pageStatus: determinePageStatus(page),
       })) || [];
 
-  if (projectMetrics) {
-    projectMetrics.visitsByPage = [...metrics, ...metricsWithoutVisits]?.sort(
-      (a, b) => a.title.localeCompare(b.title),
-    ) as VisitsByPage[];
+  if (projectMetrics.length > 0) {
+    projectMetrics[0].visitsByPage = [
+      ...metrics,
+      ...metricsWithoutVisits,
+    ]?.sort((a, b) => a.title.localeCompare(b.title)) as VisitsByPage[];
   }
 
   const project = await projectModel
@@ -892,7 +892,7 @@ async function getAggregatedProjectMetrics(
   console.timeEnd('pageMetricsByTasks');
 
   return {
-    ...projectMetrics,
+    ...projectMetrics[0],
     calldriversEnquiry,
     callsByTopic,
     totalCalldrivers,
