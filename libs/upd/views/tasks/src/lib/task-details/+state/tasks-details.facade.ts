@@ -775,6 +775,10 @@ export class TasksDetailsFacade {
     }),
   );
 
+  feedbackTotalComments$ = this.tasksDetailsData$.pipe(
+    map((data) => data?.feedbackComments.length || 0),
+  );
+
   // feedbackByTagsBarChart$ = combineLatest([
   //   this.tasksDetailsData$,
   //   this.currentLang$,
