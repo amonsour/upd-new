@@ -313,7 +313,54 @@ export class ProjectsDetailsFacade {
     }),
   );
 
-  projectTasks$ = this.projectsDetailsData$.pipe(map((data) => data?.tasks));
+  // projectTasks$ = this.projectsDetailsData$.pipe(map((data) => data?.tasks));
+
+  projectTasks$ = combineLatest([
+    this.projectsDetailsData$,
+    this.kpiTaskSuccessByUxTest$,
+    this.currentLang$,
+  ]).pipe(
+    map(([data, uxTest, lang]) => {
+      const tasks = data?.tasks || [];
+      const callsByTasks = data?.dateRangeData?.callsByTasks || [];
+      const pageMetricsByTasks = data?.dateRangeData?.pageMetricsByTasks || [];
+
+      const callsByTasksDict = arrayToDictionary(callsByTasks, 'title');
+      const pageMetricsByTasksDict = arrayToDictionary(
+        pageMetricsByTasks,
+        'title',
+      );
+      const uxTestDict = arrayToDictionary(uxTest, 'title');
+
+      return tasks.map((task) => {
+        const { title } = task;
+        const { calls = 0 } = callsByTasksDict[title] || {};
+        const { dyfNo = 0, visits = 0 } = pageMetricsByTasksDict[title] || {};
+
+        const kpiNoClicks = visits !== 0 ? (dyfNo / visits) * 1000 : 0;
+        const kpiCallsRatio = visits !== 0 ? calls / visits : 0;
+        const kpiCalls = kpiCallsRatio * 100;
+
+        const ux = uxTestDict[title] || {};
+        const uxSuccess = Number(ux.success)?.toFixed(2) || 0;
+        const uxTest2Years = ux.latestDate;
+        const isWithin2Years =
+          uxTest2Years &&
+          dayjs(uxTest2Years).isAfter(dayjs().subtract(2, 'year'))
+            ? 'Yes'
+            : 'No';
+
+        return {
+          ...task,
+          title: this.i18n.service.translate(title, lang) || title,
+          calls: kpiCalls,
+          dyfNo: kpiNoClicks,
+          uxTest2Years: isWithin2Years,
+          successRate: uxSuccess,
+        };
+      });
+    }),
+  );
 
   calldriversChart$ = combineLatest([
     this.projectsDetailsData$,
@@ -426,11 +473,10 @@ export class ProjectsDetailsFacade {
       }
       const comparisonData = data?.comparisonDateRangeData?.callsByTopic || [];
 
-      return (data?.dateRangeData?.callsByTopic || [])
-        .map((callsByTopic) => {
-          const previousCalls = comparisonData.find(
-            (prevTopic) => prevTopic.tpc_id === callsByTopic.tpc_id,
-          );
+      return (data?.dateRangeData?.callsByTopic || []).map((callsByTopic) => {
+        const previousCalls = comparisonData.find(
+          (prevTopic) => prevTopic.tpc_id === callsByTopic.tpc_id,
+        );
 
         return {
           topic: callsByTopic.topic || '',
@@ -469,7 +515,7 @@ export class ProjectsDetailsFacade {
         field: 'sub_subtopic',
         header: 'sub-subtopic',
         translate: true,
-      }, 
+      },
       {
         field: 'enquiry_line',
         header: 'enquiry_line',

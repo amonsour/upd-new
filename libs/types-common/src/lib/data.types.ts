@@ -16,6 +16,7 @@ import type {
   IReadability,
   IAnnotations,
   IReports,
+  CallsByTasks,
 } from './schema.types';
 import type { MostRelevantCommentsAndWordsByLang } from './feedback.types';
 
@@ -529,6 +530,10 @@ export interface ProjectDetailsAggregatedData {
   calldriversEnquiry: { enquiry_line: string; calls: number }[];
   callsByTopic: CallsByTopic[];
   totalCalldrivers: number;
+  pageMetricsByTasks: (Partial<ProjectDetailsAggregatedData> & {
+    title: string;
+  })[];
+  callsByTasks: CallsByTasks[];
 }
 
 export interface ProjectsDetailsData
